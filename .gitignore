@@ -1,0 +1,7 @@
+*.exe
+
+config.toml
+config.json
+config.yaml
+
+_*

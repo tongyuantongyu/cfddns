@@ -1,0 +1,160 @@
+[service]
+## The name of this instance. This name will be included in the mark of records managed by this instance.
+## Therefore, different instances can add records under same domain without interference.
+name = "example"
+
+## Refresh rate. All address will be resolved from configured sources in this rate.
+refresh_rate = "30s"
+
+
+# Log config. Remove field if you want to use default.
+[log]
+
+## Minimum logging level.
+level = "debug"
+
+## Log encoding. Valid values: console / json.
+encoding = "console"
+
+
+# DNS Provider config. Currently only cloudflare is supported.
+[provider]
+
+## Cloudflare Token. See https://developers.cloudflare.com/fundamentals/api/get-started/create-token/ for detail.
+## Zone.Zone and Zone.DNS permission is required.
+api_token = "<token>"
+
+## Cloudflare zone names. Zones of configured domains must list here.
+zone_names = [ "example.com" ]
+
+## TTL set in record.
+ttl = 60
+
+
+# Address config.
+# "address" is an IP obtained from any of the configured sources,
+# and transformed by all configured transformers.
+[[address]]
+
+## Name is used to reference IP by domain config.
+name = "this-machine-ipv6"
+
+## Address source config.
+## "source" is some method to get IP.
+[[address.sources]]
+
+### Type of the source.
+### "simple" source loads from some URL, and search for IP address in response body.
+type = "simple"
+
+### The URL to load from.
+source = "https://ident.me/"
+config = { type = "ipv6", timeout = "10s" }
+
+
+[[address.sources]]
+
+### "cf_trace" source loads from Cloudflare's CDN trace.
+type = "cf_trace"
+
+### The host to load from.
+source = "www.cloudflare.com"
+config = { type = "ipv6", timeout = "10s" }
+
+[[address.sources]]
+type = "cf_trace"
+
+### If source is IP, www.cloudflare.com will be used as host.
+source = "2606:4700:a0::8"
+
+[[address.sources]]
+type = "cf_trace"
+source = "2606:4700:4700::1001"
+
+### To force use IP ad host, add ip_host option.
+config = { ip_host = true }
+
+[[address.sources]]
+type = "cf_trace"
+source = "cloudflare.com"
+
+### Use force_address to set both source IP and host
+config = { force_address = "2606:4700:a0::8" }
+
+
+[[address.sources]]
+
+### "interface" sources loads from system network status.
+type = "interface"
+
+### The network interface to read IP from.
+source = "eth0"
+
+[address.sources.config]
+type = "ipv6"
+
+#### If interface has multiple IP, use which: first, shortest, last.
+select = "first"
+
+flags = [
+    "allow-non-global-unicast", # Do not exclude non-Global Unicast IP
+    "allow-private",            # Do not exclude private IP
+    "no-eui64",                 # Exclude EUI64 IP
+    "allow-temporary",          # Do not exclude temporary (secondary) IP
+    "allow-bad-dad",            # Do not exclude IP with bad DAD (duplicate address detection) state
+    "allow-deprecated"          # Do not exclude deprecated IP
+]
+
+#### Exclude IP within these range
+exclude = [ "2001:db8::/48", "2001:db8:2::/48" ]
+
+#### Only include IP in any of these range (this has least priority)
+include = [ "2001:db8:1::/48" ]
+
+
+# Multiple addresses can be configured
+[[address]]
+name = "neighbor-ipv6"
+
+[[address.sources]]
+
+### "reference" sources loads IP from another address.
+type = "reference"
+
+### Name of the address to load from
+source = "this-machine-ipv6"
+
+
+## Address transformer config.
+## "transformer" is some method to change IP.
+[[address.transformers]]
+
+### "mask_rewrite" transformer rewrite part of the IP to configured value.
+type = "mask_rewrite"
+
+### The first "mask" bit of IP is kept and rest replaced with corresponding bits in "overwrite".
+config = { overwrite = "::e", mask = "64" }
+
+
+[[address.transformers]]
+type = "mask_rewrite"
+
+### "mask" can also be general IP mask.
+config = { overwrite = "::e", mask = "ffff:0:0:ffff::" }
+
+
+# Domain config.
+# "domain" is a record set in DNS.
+[[domain]]
+
+## Name of the domain.
+domain = "ddns.example.com"
+
+## Can be A for IPv4 or AAAA for IPv6.
+type = "AAAA"
+
+## Extra mark for this record, to distinguish multiple records of same domain managed by this instance.
+mark = "ddns-1"
+
+## Name of the address to set as record IP.
+address = "this-machine-ipv6"
