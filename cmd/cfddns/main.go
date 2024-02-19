@@ -23,6 +23,8 @@ var (
 	help       = flag.BoolP("help", "h", false, "Print help message")
 )
 
+var buildDate string
+
 var conf config.Config
 
 func init() {
@@ -89,6 +91,12 @@ func getLogger(ctx context.Context) context.Context {
 
 func main() {
 	ctx := getInitLogger()
+
+	if buildDate != "" {
+		log.S(ctx).Infow("cfddns starting", "variant", "release", "build_date", buildDate)
+	} else {
+		log.S(ctx).Infow("cfddns starting", "variant", "debug")
+	}
 
 	f, err := os.Open(*configPath)
 	if err != nil {
