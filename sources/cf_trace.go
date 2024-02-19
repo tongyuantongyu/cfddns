@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"reflect"
 	"strings"
 	"time"
 
@@ -29,8 +28,6 @@ type cloudflareTrace struct {
 func (s *cloudflareTrace) Typename() string {
 	return "cf-trace"
 }
-
-type transportDialer func(ctx context.Context, network, addr string) (net.Conn, error)
 
 func (s *cloudflareTrace) wrapDialer(upstream transportDialer) transportDialer {
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -83,27 +80,11 @@ func (s *cloudflareTrace) Lookup(ctx context.Context) (result net.IP, err error)
 
 	if s.ForceAddress != "" || s.Type != nil {
 		log.S(ctx).Debug("patching http.Client")
-		transport := http.DefaultTransport.(*http.Transport)
-		if client.Transport != nil {
-			t, ok := client.Transport.(*http.Transport)
-			if !ok {
-				log.S(ctx).Errorw("found unknown custom http.Client.Transpose",
-					"transpose_type", reflect.TypeOf(client.Transport).String())
-				return nil, fmt.Errorf("unknown custom http.Client.Transpose")
-			}
 
-			transport = t.Clone()
+		client, err = wrapClientDialer(ctx, client, s.wrapDialer)
+		if err != nil {
+			return nil, err
 		}
-
-		transport.DialContext = s.wrapDialer(transport.DialContext)
-
-		if transport.DialTLSContext != nil {
-			transport.DialTLSContext = s.wrapDialer(transport.DialTLSContext)
-		}
-
-		clientCopy := *client
-		clientCopy.Transport = transport
-		client = &clientCopy
 	}
 
 	url := fmt.Sprintf("https://%s/cdn-cgi/trace", s.host)

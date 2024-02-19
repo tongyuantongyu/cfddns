@@ -54,6 +54,13 @@ func (s *simple) Lookup(ctx context.Context) (result net.IP, err error) {
 		client = ctxClient.(*http.Client)
 	}
 
+	log.S(ctx).Debug("patching http.Client")
+
+	client, err = wrapClientDialer(ctx, client, s.wrapDialer)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx = log.SWith(ctx, "url", s.url, "family", s.Type, "timeout", timeout)
 
 	defer func() {
