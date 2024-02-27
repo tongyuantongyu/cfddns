@@ -220,9 +220,6 @@ func newAddr(ifam *syscall.IfAddrmsg, attrs []syscall.NetlinkRouteAttr) (addr Ad
 			if rawFlags&unix.IFA_F_DEPRECATED != 0 {
 				addr.Flags |= FlagDeprecated
 			}
-			if rawFlags&unix.IFA_F_MANAGETEMPADDR != 0 {
-				addr.Flags |= FlagTemporary
-			}
 			if rawFlags&unix.IFA_F_NODAD != 0 {
 				addr.Flags |= FlagNoDad
 			}
