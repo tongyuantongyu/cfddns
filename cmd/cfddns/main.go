@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"strconv"
 	"strings"
 	"time"
 
@@ -89,6 +91,38 @@ func getLogger(ctx context.Context) context.Context {
 	return log.WithLogger(context.Background(), logger)
 }
 
+func handlePidFile(ctx context.Context) {
+	ctx = log.With(ctx, zap.String("pid_file", conf.Service.PidFile))
+
+	if pid, err := os.ReadFile(conf.Service.PidFile); err == nil {
+		log.S(ctx).Fatalw("cfddns with pidfile already running", "pid", pid)
+	} else if !os.IsNotExist(err) {
+		log.S(ctx).Fatalw("cannot check pid file", zap.Error(err))
+	}
+
+	err := os.WriteFile(conf.Service.PidFile, []byte(strconv.Itoa(os.Getpid())), 0644)
+	if err != nil {
+		log.S(ctx).Fatalw("cannot write pid file", zap.Error(err))
+	}
+
+	clean := func(pidFile string) {
+		err := os.Remove(pidFile)
+		if err != nil {
+			log.S(ctx).Errorw("cannot remove pid file", zap.Error(err))
+		}
+	}
+
+	defer clean(conf.Service.PidFile)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func(sigChan <-chan os.Signal, pidFile string) {
+		<-sigChan
+		clean(pidFile)
+		os.Exit(0)
+	}(sigChan, conf.Service.PidFile)
+}
+
 func main() {
 	ctx := getInitLogger()
 
@@ -137,6 +171,14 @@ func main() {
 		ticker = time.NewTicker(time.Duration(conf.Service.RefreshRate))
 	}
 
+	if conf.Service.PidFile != "" {
+		if ticker == nil {
+			log.S(ctx).Warnw("pid file enabled for one shot mode.")
+		}
+
+		handlePidFile(ctx)
+	}
+
 	for {
 		result, err := resolver.Resolve(ctx)
 		if err != nil {
@@ -151,7 +193,7 @@ func main() {
 
 	EndUpdate:
 		if ticker == nil {
-			os.Exit(0)
+			break
 		}
 
 		<-ticker.C

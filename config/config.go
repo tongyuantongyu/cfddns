@@ -17,6 +17,7 @@ type Config struct {
 type Service struct {
 	Name        string          `toml:"name" json:"name" yaml:"name"`
 	RefreshRate common.Duration `toml:"refresh_rate" json:"refresh_rate" yaml:"refresh_rate"`
+	PidFile     string          `toml:"pid_file" json:"pid_file" yaml:"pid_file"`
 }
 
 type Log struct {
