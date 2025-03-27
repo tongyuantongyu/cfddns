@@ -100,7 +100,7 @@ func (d *cloudflare) FindRecord(ctx context.Context, r Record) (records []Record
 
 	for _, record := range cfRecords {
 		records = append(records, Record{
-			Handle:  cloudflareHandle{record.ID, record.ZoneID},
+			Handle:  cloudflareHandle{record.ID, zoneRc.Identifier},
 			Domain:  record.Name,
 			Type:    record.Type,
 			Address: record.Content,
@@ -130,6 +130,7 @@ func (d *cloudflare) WriteRecord(ctx context.Context, r Record) (Record, error) 
 	}
 
 	var cfRecord cfapi.DNSRecord
+	var zoneID string
 
 	if r.Handle != nil {
 		log.S(ctx).Debugw("updating record")
@@ -143,6 +144,7 @@ func (d *cloudflare) WriteRecord(ctx context.Context, r Record) (Record, error) 
 			Comment: &r.Mark,
 		}
 
+		zoneID = handle.ZoneID
 		cfRecord, err = api.UpdateDNSRecord(ctx, cfapi.ZoneIdentifier(handle.ZoneID), params)
 		if err != nil {
 			log.S(ctx).Warnw("failed update record", zap.Error(err))
@@ -166,6 +168,7 @@ func (d *cloudflare) WriteRecord(ctx context.Context, r Record) (Record, error) 
 		}
 
 		cfRecord, err = api.CreateDNSRecord(ctx, zoneRc, params)
+		zoneID = zoneRc.Identifier
 		if err != nil {
 			log.S(ctx).Warnw("failed create record", zap.Error(err))
 			return Record{}, fmt.Errorf("failed create record: %w", err)
@@ -175,7 +178,7 @@ func (d *cloudflare) WriteRecord(ctx context.Context, r Record) (Record, error) 
 	record := Record{
 		Handle: cloudflareHandle{
 			ID:     cfRecord.ID,
-			ZoneID: cfRecord.ZoneID,
+			ZoneID: zoneID,
 		},
 		Domain:  cfRecord.Name,
 		Type:    cfRecord.Type,
